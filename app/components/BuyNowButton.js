@@ -1,14 +1,27 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Script from 'next/script'
 
 export default function BuyNowButton({ product, className = '' }) {
   const [loading, setLoading] = useState(false)
+  const [razorpayLoaded, setRazorpayLoaded] = useState(false)
+
+  useEffect(() => {
+    // Check if Razorpay is already loaded
+    if (window.Razorpay) {
+      setRazorpayLoaded(true)
+    }
+  }, [])
 
   const handleBuyNow = async () => {
     try {
       setLoading(true)
+      
+      // Check if Razorpay is loaded
+      if (!window.Razorpay) {
+        throw new Error('Razorpay script not loaded. Please refresh the page and try again.')
+      }
       
       // Create order on server
       const orderResponse = await fetch('/api/razorpay/order', {
@@ -100,18 +113,25 @@ export default function BuyNowButton({ product, className = '' }) {
     <>
       <Script 
         src="https://checkout.razorpay.com/v1/checkout.js" 
-        strategy="beforeInteractive"
+        strategy="afterInteractive"
+        onLoad={() => {
+          console.log('Razorpay script loaded')
+          setRazorpayLoaded(true)
+        }}
+        onError={() => {
+          console.error('Failed to load Razorpay script')
+        }}
       />
       <button 
         onClick={handleBuyNow} 
-        disabled={loading}
+        disabled={loading || !razorpayLoaded}
         className={`${className} ${
-          loading 
+          loading || !razorpayLoaded
             ? 'bg-gray-400 cursor-not-allowed' 
             : 'bg-indigo-600 hover:bg-indigo-700'
         } text-white font-medium py-3 px-6 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2`}
       >
-        {loading ? 'Processing...' : 'Buy Now'}
+        {loading ? 'Processing...' : !razorpayLoaded ? 'Loading...' : 'Buy Now'}
       </button>
     </>
   )
